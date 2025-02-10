@@ -1,150 +1,209 @@
 program Main;
-uses SysUtils, StrUtils;
+uses SysUtils, StrUtils, Character;
 
-procedure PrintArr(Arr: Array of AnsiString);
+procedure Part2(const Data: AnsiString);
 var
-    I: Word;
-begin
-    Write('[ ');
-    for I:= Low(Arr) to High(Arr) do begin
-        Write(Arr[I], ' ');
-    end;
-    WriteLn(']');
-    ///WriteLn();
-end;
-
-{ We must define a Type alias for the dynamic array 
-  or else the compiler will treat the dynamic array as a static one.
-  This is a major issue, as we need to delete an element from the array.
-  The Delete function can only accept a dynamic array - not a static one.
-  Thanks Pascal... }
-Type
-    DynArrayOfAnsiString = Array of AnsiString;
-
-function IsLevelSafe(var Levels: DynArrayOfAnsiString): Boolean;
-var
-    A, B, I: Word;
-    Diff: Integer;
-    IsInc, IsDec: Boolean;
+    BeginIdx, EndIdx: Integer;
+    //Len: Word;
+    NumA, NumB, Pos, Rezult: LongInt; //OpPos, CmdPos,
+    Enabled: Boolean;
+    DoCmd, DontCmd, Op: String;
 begin
 
-    I:=0;
-    IsInc:= false;
-    IsDec:= false;
+{ 
+    NOTE TO SELF: Make sure the variable that can go negative is a signed integer,
+    otherwise Pascal doesn't care and wraps the value around. Thanks.
+}
+    Pos:= 0;
+    BeginIdx:= 0;
+    EndIdx:= 0;
+    Rezult:= 0;
+    Enabled:= true;
+    DoCmd:= 'do()';
+    DontCmd:= 'don''t()';
+    Op:= 'mul';
 
-    A:= StrToInt(Levels[I]);
-    Inc(I);
+    while Pos < Length(Data) do begin
 
-    while I <= High(Levels) do begin
-
-        B:= StrToInt(Levels[I]);
-        Diff:= A - B;
-
-        if Diff = 0 then begin
-            exit(false);
-        end;
-
-        if (IsInc) or (IsDec) then begin
-            //WriteLn('[DEBUG] IsInc or IsDec');
-            if Diff < 0 then begin // Increasing
-                IsInc:= true;
-                if (IsInc) and (IsDec) then begin
-                    exit(false);
-                end;
-            end else begin
-                IsDec:= true;
-                if (IsInc) and (IsDec) then begin
-                    exit(false);
-                end;
-            end;
-        end else begin
-            if Diff < 0 then begin
-                IsInc:= true;
-            end else if Diff > 0 then begin
-                IsDec:= true;
-            end else begin
-                WriteLn('YOU ARE NOT SUPPOSED TO BE HERE!');
-                abort();
-            end;
-        end;
-
-        if not((Abs(Diff) >= 1) and (Abs(Diff) <= 3)) then begin
-            exit(false);
-        end;
-
-        A:= B;
-        Inc(I);
-    end;
-
-    exit(true);
-
-end;
-
-{ Entry }
-var
-    TxtFile: Text;
-    NbSafe, Lvl: Word;
-    Row: String;
-    Levels, NewLevels: Array of AnsiString;
-    I, J, UnsafeIdx: Word;
-    IsSafe: Boolean;
-begin
-    Assign(TxtFile, ParamStr(1));
-    Reset(TxtFile);
-    
-    NbSafe:= 0;
-    Lvl:= 1;
-
-    while not EOF(TxtFile) do begin
-
-        ReadLn(TxtFile, Row);
-        Levels:= SplitString(Row, ' ');
-        SetLength(NewLevels, Length(Levels)-1);
-
-        if IsLevelSafe(Levels) then begin
-            //WriteLn('Level ', Lvl, ' is SAFE!');
-            Inc(NbSafe);
-        end else begin
-
-            //Write('UNSAFE ');
-            //PrintArr(Levels);
-
-            UnsafeIdx:= 0;
-            IsSafe:= false;
-
-            for UnsafeIdx:= 0 to High(Levels) do begin
-                J:= 0;
-                for I:= Low(Levels) to High(Levels) do begin
-                    if I <> UnsafeIdx then begin
-                        NewLevels[J]:= Levels[I];
-                        Inc(J);
+        if Enabled then begin
+            if Data.SubString(Pos, Length(DontCmd)) = DontCmd then begin
+                Enabled:= false;
+                Inc(Pos, Length(DontCmd));
+            end else if Data.SubString(Pos, Length(Op)) = Op then begin
+                Inc(Pos, Length(Op));
+                // Check for (
+                if Data.Chars[Pos] <> '(' then continue;
+                // Inc pos
+                Inc(Pos);
+                if Pos >= Length(Data) then break;
+                // do while number
+                BeginIdx:= Pos;
+                if (IsDigit(Data.Chars[Pos])) or (Data.Chars[Pos] = '-') then begin
+                    Inc(Pos);
+                    if Pos >= Length(Data) then break;
+                    while (IsDigit(Data.Chars[Pos])) and (Pos < Length(Data)) do begin
+                        Inc(Pos);
                     end;
+                end else begin
+                    continue;
                 end;
 
-                //Write('  CHECKING ');
-                //PrintArr(NewLevels);
+                if Pos >= Length(Data) then break;
+                // check for ,
+                if Data.Chars[Pos] <> ',' then continue;
+                // get numA
+                EndIdx:= Pos;
+                NumA:= StrToInt(Data.SubString(BeginIdx, EndIdx-BeginIdx));
+                // inc pos
+                Inc(Pos);
+                if Pos >= Length(Data) then break;
 
-                if IsLevelSafe(NewLevels) then begin
-                    Inc(NbSafe);
-                    //Write('    NOW SAFE ');
-                    //PrintArr(NewLevels);
-                    IsSafe:= true;
-                    break;
+                BeginIdx:= Pos;
+                // do while number
+                if (IsDigit(Data.Chars[Pos])) or (Data.Chars[Pos] = '-') then begin
+                    Inc(Pos);
+                    if Pos >= Length(Data) then break;
+                    while (IsDigit(Data.Chars[Pos])) and (Pos < Length(Data)) do begin
+                        Inc(Pos);
+                    end;
+                end else begin
+                    continue;
                 end;
 
+                if Pos >= Length(Data) then break;
+                // check for )
+                if Data.Chars[Pos] <> ')' then continue;
+                // get numB
+                EndIdx:= Pos;
+                NumB:= StrToInt(Data.SubString(BeginIdx, EndIdx-BeginIdx));
+                // rez += numA * numB
+                Rezult:= Rezult + (NumA * NumB);
+                // inc pos
+                Inc(Pos);
+            end else begin
+                Inc(Pos);
             end;
-
-            //if not IsSafe then begin
-            //    Write('    DEF UNSAFE ');
-            //    PrintArr(Levels);
-            //end;
+        end else begin
+            if Data.SubString(Pos, Length(DoCmd)) = DoCmd then begin
+                Enabled:= true;
+                Inc(Pos, Length(DoCmd));
+                continue;
+            end;
+            
+            Inc(Pos);
         end;
 
-        Inc(Lvl);
-    end;
+        //WriteLn('>Pos ', Pos);
 
-    Close(TxtFile);
+    end;
 
     WriteLn();
-    WriteLn('> Number of SAFE levels: ', NbSafe);
+    WriteLn('> Part 2: ', Rezult);
+
+end;
+
+procedure Part1(const Data: AnsiString);
+var
+    BeginIdx, EndIdx: Integer;
+    Len: Word;
+    NumA, NumB, Pos, Rezult: LongInt;
+begin
+
+{ 
+    NOTE TO SELF: Make sure the variable that can go negative is a signed integer,
+    otherwise Pascal doesn't care and wraps the value around. Thanks.
+}
+    Pos:= 0;
+    BeginIdx:= 0;
+    EndIdx:= 0;
+    Rezult:= 0;
+
+    while Pos < Length(Data) do begin
+
+        Pos:= Data.IndexOf('mul(', Pos);
+        if Pos < 0 then break;
+        
+        Inc(Pos, Length('mul('));
+        BeginIdx:= Pos;
+{       
+        NOTE: MyString.Chars[] gives a ZERO indexed based access to the string 
+        as opposed to accessing the string array directly (MyString[]) which is ONE indexed based.
+}
+        NumA:= 0;
+        while (TryStrToInt(Data.Chars[Pos], NumA)) or (Data.Chars[Pos] = '-') do begin
+            Inc(Pos);
+            If Pos >= Length(Data) then break;
+        end;
+
+        If Pos >= Length(Data) then break;
+        if Data.Chars[Pos] <> ',' then continue;
+
+        EndIdx:= Pos;
+        if EndIdx = BeginIdx then continue;
+
+        Len:= EndIdx - BeginIdx;
+        if not TryStrToInt(Data.SubString(BeginIdx, Len), NumA) then continue;
+        //WriteLn(' >NumA: ', NumA);
+
+        Pos:= EndIdx + 1;
+        if Pos >= Length(Data) then break;
+
+        BeginIdx:= Pos;
+        NumB:= 0;
+        while (TryStrToInt(Data.Chars[Pos], NumB)) or (Data.Chars[Pos] = '-') do begin
+            Inc(Pos);
+            If Pos >= Length(Data) then break;
+        end;
+
+        If Pos >= Length(Data) then break;
+        if Data.Chars[Pos] <> ')' then continue;
+
+        EndIdx:= Pos;
+        if EndIdx = BeginIdx then continue;
+
+        Len:= EndIdx - BeginIdx;
+        if not TryStrToInt(Data.SubString(BeginIdx, Len), NumB) then continue;
+        //WriteLn(' >NumB: ', NumB);
+
+        { Good result }
+        //WriteLn(' >Nums: ', NumA, ' x ', NumB);
+        Rezult:= Rezult + (NumA * NumB);
+        Pos:= EndIdx + 1;
+
+    end;
+
+    WriteLn();
+    WriteLn('> Part 1: ', Rezult);
+
+end;
+    
+  
+{ Main entry }
+var
+    InFile: Text;
+    Data, Line: AnsiString;
+begin
+
+{
+    NOTE: SetLength preserves the elements of the array.
+          Set length to 0 to clear the array from memory.
+}
+
+    Assign(InFile, ParamStr(1));
+    Reset(InFile);
+
+    while not EOF(InFile) do begin
+        ReadLn(InFile, Line);
+        AppendStr(Data, Line);
+    end;
+
+    Close(InFile);
+
+{
+    When using a dynamic array, the first element of the buffer must be passed to BlockRead.
+    As opposed to when using a static array, the name of the array must be passed to BlockRead. Wow.
+}   
+
+    Part1(Data);
+    Part2(Data);
 end.
